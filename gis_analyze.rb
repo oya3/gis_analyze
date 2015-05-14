@@ -52,7 +52,57 @@ def get_curve_pos_array(station_data,rail)
   end
 end
 
-def get_curves(station_data,key,station_name)
+def curve_connect(base_curves)
+  current_curves = base_curves.clone
+  is_link = true
+  while is_link
+    is_link = false
+    work_curves = Array.new
+    # 頭から接続する
+    while cc = current_curves.shift
+      work_curves << cc
+      cp = cc[:pos_array].last
+      current_curves.each.with_index do |tc,ti|
+        tp = tc[:pos_array].first
+        if tp.nil? || cp.nil?
+          puts "#{tk}:#{tc[:service_provider_type]}".encode('cp932')
+          binding.pry
+        end
+        if (cp[:lat] == tp[:lat]) && (cp[:lng] == tp[:lng])
+          t = tc[:pos_array].clone
+          t.delete_at(0) # 先頭を捨てておく
+          cc[:pos_array] += t
+          current_curves.delete_at(ti)
+          is_link = true
+          break
+        end
+      end
+    end
+    current_curves = work_curves.clone
+    
+    work_curves = Array.new
+    # お尻から接続する
+    while cc = current_curves.pop
+      work_curves << cc
+      cp = cc[:pos_array].last
+      current_curves.each.with_index do |tc,ti|
+        tp = tc[:pos_array].first
+        if (cp[:lat] == tp[:lat]) && (cp[:lng] == tp[:lng])
+          t = tc[:pos_array].clone
+          t.delete_at(0) # 先頭を捨てておく
+          cc[:pos_array] += t
+          current_curves.delete_at(ti)
+          is_link = true
+          break
+        end
+      end
+    end
+    current_curves = work_curves.clone
+  end
+  return current_curves
+end
+
+def get_curves(station_data,key,station_name,tk)
   out_curves = Array.new # １路線のカーブ情報保持
   curves = station_data[:curves]
   commons = station_data[key]
@@ -74,17 +124,14 @@ def get_curves(station_data,key,station_name)
       # end
     end
   end
-  return out_curves
+  
+  # 可能な範囲でつなぎ直す
+  new_curves = curve_connect(out_curves)
+  return new_curves
 end
 
-def create_kml(station_data,title)
+def make_root_kml(station_data)
   kml = Array.new
-  
-  kml.push '<?xml version="1.0" encoding="UTF-8"?>'
-  kml.push '<kml xmlns="http://www.opengis.net/kml/2.2">'
-  kml.push '<Document>'
-  kml.push "<name>#{title}</name>"
-  kml.push '<open>1</open>'
 
   # 路線名取得
   rail_hash = Hash.new
@@ -105,8 +152,8 @@ def create_kml(station_data,title)
   # rail_hash[:test] = hash
   
   # カーブデータ出力
-  rail_hash.each do |key,rail| 
-    curves = get_curves(station_data,:rail_roads,rail[:railway_line_name])
+  rail_hash.each do |key,rail|
+    curves = get_curves(station_data,:rail_roads,rail[:railway_line_name],key)
     curves.each do |curve|
       kml.push '<Placemark>'
       kml.push '<description>'+rail[:operation_company]+'</description>'
@@ -139,6 +186,72 @@ def create_kml(station_data,title)
       kml.push '</Placemark>'
     end
   end
+  return kml
+end
+
+def create_kml(station_data,title)
+  kml = Array.new
+  
+  kml.push '<?xml version="1.0" encoding="UTF-8"?>'
+  kml.push '<kml xmlns="http://www.opengis.net/kml/2.2">'
+  kml.push '<Document>'
+  kml.push "<name>#{title}</name>"
+  kml.push '<open>1</open>'
+
+  kml.push make_root_kml(station_data).join("\n")
+  # # 路線名取得
+  # rail_hash = Hash.new
+  # station_data[:rail_roads].each do |id,rail|
+  #   key = rail[:railway_line_name] + rail[:operation_company]
+  #   if ! rail_hash.key? key
+  #     rail_hash[key] = rail
+  #     # puts "#{key}".encode('cp932')
+  #   end
+  # end
+
+  # # # １つの路線のみ変換する用サンプルコード
+  # # rail_hash = Hash.new
+  # # hash = {
+  # #   :railway_line_name => '4号線(中央線)',
+  # #   :operation_company => '大阪市'
+  # # }
+  # # rail_hash[:test] = hash
+  
+  # # カーブデータ出力
+  # rail_hash.each do |key,rail|
+  #   curves = get_curves(station_data,:rail_roads,rail[:railway_line_name],key)
+  #   curves.each do |curve|
+  #     kml.push '<Placemark>'
+  #     kml.push '<description>'+rail[:operation_company]+'</description>'
+  #     kml.push '<name>'+rail[:railway_line_name]+'</name>'
+  #     kml.push '<ExtendedData>'
+  #     kml.push '<Data name="company_name">'
+  #     kml.push "<value>#{rail[:operation_company]}</value>"
+  #     kml.push '</Data>'
+  #     kml.push '<Data name="line_name">'
+  #     kml.push "<value>#{rail[:railway_line_name]}</value>"
+  #     kml.push '</Data>'
+  #     kml.push '<Data name="railway_type">'
+  #     kml.push "<value>#{curve[:railway_type]}</value>"
+  #     kml.push '</Data>'
+  #     kml.push '<Data name="service_provider_type">'
+  #     kml.push "<value>#{curve[:service_provider_type]}</value>"
+  #     kml.push '</Data>'
+  #     kml.push '</ExtendedData>'
+  #     # kml.push '<company>'+rail[:operation_company]+'</company>'
+  #     # kml.push '<line_name>'+rail[:railway_line_name]+'</line_name>'
+  #     # kml.push '<railway_type>'+curve[:railway_type].to_s+'</railway_type>'
+  #     # kml.push '<service_provider_type>'+curve[:service_provider_type].to_s+'</service_provider_type>'
+  #     kml.push '<LineString>'
+  #     kml.push '<coordinates>'
+  #     curve[:pos_array].each do |pos|
+  #       kml.push "#{pos[:lat]},#{pos[:lng]},0.0"
+  #     end
+  #     kml.push '</coordinates>'
+  #     kml.push '</LineString>'
+  #     kml.push '</Placemark>'
+  #   end
+  # end
   
   kml.push '</Document>'
   kml.push '</kml>'
@@ -250,7 +363,7 @@ def get_xml_commons(file_body,ksj_name)
 end
 
 
-puts "get_station_info version.0.2015.05.12.0945"
+puts "get_station_info version.0.2015.05.14.1608"
 inparam = Hash.new # 入力情報保持用
 
 # オプション解析用パーサー生成
