@@ -5,8 +5,14 @@ require 'pry'
 Encoding.default_external = 'utf-8'
 Encoding.default_internal = 'utf-8'
 
+# download:
 # http://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N02.html
+# データ構造:
+# http://nlftp.mlit.go.jp/ksj/gml/datalist/img/N02-1.gif
 # 「鉄道区分コード」 == railwayType
+
+# 鉄道区分コード 〈ファイル名称：RailwayClassCd〉== railway_type
+# http://nlftp.mlit.go.jp/ksj/gml/codelist/RailwayClassCd.html
 # 11	普通鉄道JR	
 # 12	普通鉄道	
 # 13	鋼索鉄道	車両にロープを緊結して山上の巻上機により巻上げて運転するのもであって，一般にケーブルカーと称されるものである。
@@ -20,15 +26,24 @@ Encoding.default_internal = 'utf-8'
 # 24	案内軌条式	軌道に車両の鉛直荷重を受ける走行路と車両の走行向を誘導する案内軌条を有し，操向装置として案内輪を有するものである。
 # 25	浮上式	
 
-# 「事業者種別コード」== serviceProviderType
+# 事業者種別コード 〈ファイル名称：InstitutionTypeCd〉== serviceProviderType
+# http://nlftp.mlit.go.jp/ksj/gml/codelist/InstitutionTypeCd.html
 # 1	JRの新幹線
 # 2	JR在来線
 # 3	公営鉄道
 # 4	民営鉄道
 # 5	第三セクター
 
+=begin
+<div class='googft-info-window'>
+<b>電鉄会社:</b> {company_name}<br>
+<b>路線名:</b> {line_name}<br>
+<b>鉄道区分コード:</b> {railway_type}<br>
+<b>事業者種別コード:</b> {service_provider_type}
+</div>
+=end
 
-def get_curve_pos(station_data,rail)
+def get_curve_pos_array(station_data,rail)
   curves = station_data[:curves]
   if curves.key? rail[:location]
     return curves[rail[:location]]
@@ -37,22 +52,24 @@ def get_curve_pos(station_data,rail)
   end
 end
 
-
-def get_curve(station_data,key,station_name)
+def get_curves(station_data,key,station_name)
   out_curves = Array.new # １路線のカーブ情報保持
   curves = station_data[:curves]
-  rails = station_data[key]
-  rails.each do |id,rail|
-    # puts "#{rail[:railway_line_name]} #{station_name}".encode('cp932')
-    if rail[:railway_line_name] == station_name
-      out_curves << get_curve_pos(station_data,rail)
+  commons = station_data[key]
+  commons.each do |id,common|
+    if common[:railway_line_name] == station_name
+      hash = Hash.new
+      hash[:pos_array] = get_curve_pos_array(station_data,common)
+      hash[:railway_type] = common[:railway_type]
+      hash[:service_provider_type] = common[:service_provider_type]
+      out_curves << hash
       # # 駅リンクがあるか確認
-      # if rail.key? :station
+      # if common.key? :station
       #   stations = station_data[:stations]
-      #   if stations.key? rail[:station]
-      #     out_curves << get_curve_pos(station_data,stations[rail[:station]]);
+      #   if stations.key? common[:station]
+      #     hash[:station_pos_array] = get_curve_pos_array(station_data,stations[common[:station]]);
       #   else
-      #     puts "ERROR: 駅データに #{rail[:station]} がない。".encode('cp932')
+      #     puts "ERROR: 駅データに #{common[:station]} がない。".encode('cp932')
       #   end
       # end
     end
@@ -60,13 +77,13 @@ def get_curve(station_data,key,station_name)
   return out_curves
 end
 
-def create_kml(station_data)
+def create_kml(station_data,title)
   kml = Array.new
   
   kml.push '<?xml version="1.0" encoding="UTF-8"?>'
   kml.push '<kml xmlns="http://www.opengis.net/kml/2.2">'
   kml.push '<Document>'
-  kml.push '<name>kml</name>'
+  kml.push "<name>#{title}</name>"
   kml.push '<open>1</open>'
 
   # 路線名取得
@@ -79,6 +96,7 @@ def create_kml(station_data)
     end
   end
 
+  # # １つの路線のみ変換する用サンプルコード
   # rail_hash = Hash.new
   # hash = {
   #   :railway_line_name => '4号線(中央線)',
@@ -88,14 +106,32 @@ def create_kml(station_data)
   
   # カーブデータ出力
   rail_hash.each do |key,rail| 
-    curves = get_curve(station_data,:rail_roads,rail[:railway_line_name])
+    curves = get_curves(station_data,:rail_roads,rail[:railway_line_name])
     curves.each do |curve|
       kml.push '<Placemark>'
       kml.push '<description>'+rail[:operation_company]+'</description>'
       kml.push '<name>'+rail[:railway_line_name]+'</name>'
+      kml.push '<ExtendedData>'
+      kml.push '<Data name="company_name">'
+      kml.push "<value>#{rail[:operation_company]}</value>"
+      kml.push '</Data>'
+      kml.push '<Data name="line_name">'
+      kml.push "<value>#{rail[:railway_line_name]}</value>"
+      kml.push '</Data>'
+      kml.push '<Data name="railway_type">'
+      kml.push "<value>#{curve[:railway_type]}</value>"
+      kml.push '</Data>'
+      kml.push '<Data name="service_provider_type">'
+      kml.push "<value>#{curve[:service_provider_type]}</value>"
+      kml.push '</Data>'
+      kml.push '</ExtendedData>'
+      # kml.push '<company>'+rail[:operation_company]+'</company>'
+      # kml.push '<line_name>'+rail[:railway_line_name]+'</line_name>'
+      # kml.push '<railway_type>'+curve[:railway_type].to_s+'</railway_type>'
+      # kml.push '<service_provider_type>'+curve[:service_provider_type].to_s+'</service_provider_type>'
       kml.push '<LineString>'
       kml.push '<coordinates>'
-      curve.each do |pos|
+      curve[:pos_array].each do |pos|
         kml.push "#{pos[:lat]},#{pos[:lng]},0.0"
       end
       kml.push '</coordinates>'
@@ -163,16 +199,13 @@ end
 # <ksj:serviceProviderType>2</ksj:serviceProviderType>
 # <ksj:railwayLineName>八戸線</ksj:railwayLineName>
 # <ksj:operationCompany>東日本旅客鉄道</ksj:operationCompany>
-
 # <ksj:station xlink:href="#eb03_8090"/>
-
 # 駅
 # <ksj:location xlink:href="#cv_stn3081"/>
 # <ksj:railwayType>12</ksj:railwayType>
 # <ksj:serviceProviderType>4</ksj:serviceProviderType>
 # <ksj:railwayLineName>多摩線</ksj:railwayLineName>
 # <ksj:operationCompany>小田急電鉄</ksj:operationCompany>
-
 # <ksj:stationName>新百合ヶ丘</ksj:stationName>
 # <ksj:railroadSection xlink:href="#eb02_6211"/>
 def get_xml_commons(file_body,ksj_name)
@@ -188,7 +221,7 @@ def get_xml_commons(file_body,ksj_name)
     if body =~ /\<ksj\:railwayType\>(\d+?)\<\/ksj\:railwayType\>/
       hash[:railway_type] = $1
     end
-    if body =~ /\<ksj\:serviceProviderType\>(\d+)\<\/ksj\:serviceProviderType\>/
+    if body =~ /\<ksj\:serviceProviderType\>(\d+?)\<\/ksj\:serviceProviderType\>/
       hash[:service_provider_type] = $1
     end
     if body =~ /\<ksj\:railwayLineName>(.+?)\<\/ksj\:railwayLineName\>/
@@ -209,7 +242,7 @@ def get_xml_commons(file_body,ksj_name)
     if body =~ /\<ksj\:railroadSection xlink\:href\=\"\#(.+?)\"\/\>/
       hash[:railroad_section] = $1
     end
-
+    
     commons[key] = hash
     "# #{key}"
   end
@@ -248,126 +281,21 @@ begin
   end
 
   # バウンドデータ取得
-  # bound = Hash.new
-  # file_body.gsub!(/\<gml\:boundedBy\>.+?\<gml\:EnvelopeWithTimePeriod srsName\=\"(.+?)\" frame\=\"(.+?)\"\>(.+?)\<\/gml\:EnvelopeWithTimePeriod\>.+?\<\/gml\:boundedBy\>/m) do
-  #   bound[:src_name] = $1
-  #   bound[:frame] = $2
-  #   body = $3
-  #   if body =~ /\<gml\:lowerCorner\>([0-9\.]+?)\s+([0-9\.]+?)\<\/gml\:lowerCorner\>/
-  #     pos = { :lat => $1, :lng => $2}
-  #     bound[:lower_corner] = pos
-  #   end
-  #   if body =~ /\<gml\:upperCorner\>([0-9\.]+?)\s+([0-9\.]+?)\<\/gml\:upperCorner\>/
-  #     pos = { :lat => $1, :lng => $2}
-  #     bound[:upper_corner] = pos
-  #   end
-  #   if body =~ /\<gml\:beginPosition calendarEraName\=\"(.+?)\"\>(\d+?)\<\/gml\:beginPosition\>/
-  #     hash = { :calendar_era_name => $1, :year => $2}
-  #     bound[:bigin_position] = hash
-  #   end
-  #   if body =~ /\<gml\:endPosition indeterminatePosition=\"(.+?)\"\/\>/
-  #     hash = { :indeterminate_position => $1 }
-  #     bound[:end_position] = hash
-  #   end
-  #   "# bml:boundedBy"
-  # end
-  # バウンドデータ取得
   stationData[:bound] = get_xml_bound(file_body)
-  
-  # カーブデータ取得
-  # curves = Hash.new
-  # file_body.gsub!(/\<gml\:Curve gml\:id\=\"(.+?)\"\>.+?\<gml\:posList\>(.+?)\<\/gml\:posList\>.+?\<\/gml\:Curve\>/m) do |curve|
-  #   key = $1
-  #   poslists = $2.split("\n")
-  #   posArray = Array.new
-  #   poslists.each do|pos|
-  #     if pos =~ /(-*[0-9\.]+?)\s+(-*[0-9\.]+?)$/
-  #       pos = Hash.new
-  #       pos[:lat] = $2
-  #       pos[:lng] = $1
-  #       posArray << pos
-  #     end
-  #   end
-  #   curves[key] = posArray
-  #   "# #{key}"
-  # end
-  # puts "CURVES:\n"+curves.to_s
   # カーブデータ取得
   stationData[:curves] = get_xml_curves(file_body)
-  
   # レールデータ取得
-  # rail_roads = Hash.new
-  # file_body.gsub!(/\<ksj\:RailroadSection gml\:id=\"(.+?)\"\>(.+?)\<\/ksj\:RailroadSection\>/m) do |rail_road|
-  #   key = $1
-  #   body = $2
-  #   hash = Hash.new
-  #   if body =~ /\<ksj\:location xlink\:href\=\"\#(.+?)\"\/\>/
-  #     hash[:location] = $1
-  #   end
-  #   if body =~ /\<ksj\:railwayType\>(\d+?)\<\/ksj\:railwayType\>/
-  #     hash[:railway_type] = $1
-  #   end
-  #   if body =~ /\<ksj\:serviceProviderType\>(\d+)\<\/ksj\:serviceProviderType\>/
-  #     hash[:service_provider_type] = $1
-  #   end
-  #   if body =~ /\<ksj\:railwayLineName>(.+?)\<\/ksj\:railwayLineName\>/
-  #     hash[:railway_line_name] = $1
-  #   end
-  #   if body =~ /\<ksj\:operationCompany\>(.+?)\<\/ksj\:operationCompany\>/
-  #     hash[:operation_company] = $1
-  #   end
-  #   if body =~ /\<ksj\:station xlink\:href\=\"\#(.+?)\"\/\>/
-  #     hash[:station] = $1
-  #   end
-  #   rail_roads[key] = hash
-  #   "# #{key}"
-  # end
-  # puts "RAIL_ROADS:\n" + rail_roads.to_s
   stationData[:rail_roads] = get_xml_commons(file_body,'RailroadSection')
-
   # 駅データ取得
-  # stations = Hash.new
-  # file_body.gsub!(/\<ksj\:Station gml\:id\=\"(.+?)\"\>(.+?)\<\/ksj\:Station\>/m) do |station|
-  #   key = $1
-  #   body = $2
-  #   hash = Hash.new
-  #   if body =~ /\<ksj\:location xlink\:href\=\"\#(.+?)\"\/\>/
-  #     hash[:location] = $1
-  #   end
-  #   if body =~ /\<ksj\:railwayType\>(\d+?)\<\/ksj\:railwayType\>/
-  #     hash[:railway_type] = $1
-  #   end
-  #   if body =~ /\<ksj\:serviceProviderType\>(\d+?)\<\/ksj\:serviceProviderType\>/
-  #     hash[:service_provider_type] = $1
-  #   end
-  #   if body =~ /\<ksj\:railwayLineName\>(.+?)\<\/ksj\:railwayLineName\>/
-  #     hash[:railway_line_name] = $1
-  #   end
-  #   if body =~ /\<ksj\:operationCompany\>(.+?)\<\/ksj\:operationCompany\>/
-  #     hash[:operation_company] = $1
-  #   end
-  #   if body =~ /\<ksj\:stationName\>(.+?)\<\/ksj\:stationName\>/
-  #     hash[:station_name] = $1
-  #   end
-  #   if body =~ /\<ksj\:railroadSection xlink\:href\=\"\#(.+?)\"\/\>/
-  #     hash[:railroad_section] = $1
-  #   end
-  #   stations[key] = hash
-  #   "# #{key}"
-  # end
   stationData[:stations] = get_xml_commons(file_body,'Station')
-
   
   # 取りこぼしデータチェック
   if file_body =~ /[\<\>]/
     puts "取りこぼしている".encode('cp932')
   end
   
-  out_array = create_kml(stationData)
+  out_array = create_kml(stationData, argv[1].encode('utf-8'))
   File.write argv[1], out_array.join("\n")
-
-  
-  # puts file_body.encode('cp932') # ここに < > が発生してたら取りこぼし。。。
 rescue => exception
   puts "Exception:#{exception.message}"
   puts $@
