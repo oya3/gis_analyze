@@ -172,10 +172,6 @@ def make_root_kml(station_data)
       kml.push "<value>#{curve[:service_provider_type]}</value>"
       kml.push '</Data>'
       kml.push '</ExtendedData>'
-      # kml.push '<company>'+rail[:operation_company]+'</company>'
-      # kml.push '<line_name>'+rail[:railway_line_name]+'</line_name>'
-      # kml.push '<railway_type>'+curve[:railway_type].to_s+'</railway_type>'
-      # kml.push '<service_provider_type>'+curve[:service_provider_type].to_s+'</service_provider_type>'
       kml.push '<LineString>'
       kml.push '<coordinates>'
       curve[:pos_array].each do |pos|
@@ -189,7 +185,61 @@ def make_root_kml(station_data)
   return kml
 end
 
-def create_kml(station_data,title)
+def make_station_kml(station_data)
+  kml = Array.new
+
+  # 駅中心点を取得
+  stations = Hash.new
+  station_data[:stations].each do |id,station|
+    hash = station.clone
+    
+    key = "#{station[:operation_company]}-#{station[:station_name]}"
+    pos_array = get_curve_pos_array(station_data,station)
+    center = { :lat => 0, :lng => 0}
+    hash[:center] = center
+    pos_array.each do |pos|
+      center[:lat] = center[:lat].to_f + pos[:lat].to_f
+      center[:lng] = center[:lng].to_f + pos[:lng].to_f
+    end
+    center[:lat] = center[:lat].to_f / pos_array.size.to_f
+    center[:lng] = center[:lng].to_f / pos_array.size.to_f
+    if stations.key? key
+      stations[key][:center][:lat] = (center[:lat] + stations[key][:center][:lat]) / 2.0
+      stations[key][:center][:lng] = (center[:lng] + stations[key][:center][:lng]) / 2.0
+    else
+      stations[key] = hash
+    end
+  end
+  
+  stations.each do |key,station|
+    kml.push '<Placemark>'
+    kml.push "<description>#{station[:operation_company]}</description>"
+    kml.push "<name>#{station[:station_name]}駅</name>"
+    kml.push '<ExtendedData>'
+    kml.push '<Data name="company_name">'
+    kml.push "<value>#{station[:operation_company]}</value>"
+    kml.push '</Data>'
+    kml.push '<Data name="station_name">'
+    kml.push "<value>#{station[:station_name]}駅</value>"
+    kml.push '</Data>'
+    kml.push '<Data name="railway_type">'
+    kml.push "<value>#{station[:railway_type]}</value>"
+    kml.push '</Data>'
+    kml.push '<Data name="service_provider_type">'
+    kml.push "<value>#{station[:service_provider_type]}</value>"
+    kml.push '</Data>'
+    kml.push '</ExtendedData>'
+    kml.push '<Point>'
+    kml.push '<coordinates>'
+    kml.push "#{station[:center][:lat]},#{station[:center][:lng]},0.0"
+    kml.push '</coordinates>'
+    kml.push '</Point>'
+    kml.push '</Placemark>'
+  end
+  return kml
+end
+
+def create_kml(station_data,title, inparam)
   kml = Array.new
   
   kml.push '<?xml version="1.0" encoding="UTF-8"?>'
@@ -198,60 +248,13 @@ def create_kml(station_data,title)
   kml.push "<name>#{title}</name>"
   kml.push '<open>1</open>'
 
-  kml.push make_root_kml(station_data).join("\n")
-  # # 路線名取得
-  # rail_hash = Hash.new
-  # station_data[:rail_roads].each do |id,rail|
-  #   key = rail[:railway_line_name] + rail[:operation_company]
-  #   if ! rail_hash.key? key
-  #     rail_hash[key] = rail
-  #     # puts "#{key}".encode('cp932')
-  #   end
-  # end
-
-  # # # １つの路線のみ変換する用サンプルコード
-  # # rail_hash = Hash.new
-  # # hash = {
-  # #   :railway_line_name => '4号線(中央線)',
-  # #   :operation_company => '大阪市'
-  # # }
-  # # rail_hash[:test] = hash
+  if inparam[:map] =~ /rail|mix/
+    kml.push make_root_kml(station_data).join("\n")
+  end
   
-  # # カーブデータ出力
-  # rail_hash.each do |key,rail|
-  #   curves = get_curves(station_data,:rail_roads,rail[:railway_line_name],key)
-  #   curves.each do |curve|
-  #     kml.push '<Placemark>'
-  #     kml.push '<description>'+rail[:operation_company]+'</description>'
-  #     kml.push '<name>'+rail[:railway_line_name]+'</name>'
-  #     kml.push '<ExtendedData>'
-  #     kml.push '<Data name="company_name">'
-  #     kml.push "<value>#{rail[:operation_company]}</value>"
-  #     kml.push '</Data>'
-  #     kml.push '<Data name="line_name">'
-  #     kml.push "<value>#{rail[:railway_line_name]}</value>"
-  #     kml.push '</Data>'
-  #     kml.push '<Data name="railway_type">'
-  #     kml.push "<value>#{curve[:railway_type]}</value>"
-  #     kml.push '</Data>'
-  #     kml.push '<Data name="service_provider_type">'
-  #     kml.push "<value>#{curve[:service_provider_type]}</value>"
-  #     kml.push '</Data>'
-  #     kml.push '</ExtendedData>'
-  #     # kml.push '<company>'+rail[:operation_company]+'</company>'
-  #     # kml.push '<line_name>'+rail[:railway_line_name]+'</line_name>'
-  #     # kml.push '<railway_type>'+curve[:railway_type].to_s+'</railway_type>'
-  #     # kml.push '<service_provider_type>'+curve[:service_provider_type].to_s+'</service_provider_type>'
-  #     kml.push '<LineString>'
-  #     kml.push '<coordinates>'
-  #     curve[:pos_array].each do |pos|
-  #       kml.push "#{pos[:lat]},#{pos[:lng]},0.0"
-  #     end
-  #     kml.push '</coordinates>'
-  #     kml.push '</LineString>'
-  #     kml.push '</Placemark>'
-  #   end
-  # end
+  if inparam[:map] =~ /station|mix/
+    kml.push make_station_kml(station_data).join("\n")
+  end
   
   kml.push '</Document>'
   kml.push '</kml>'
@@ -365,16 +368,21 @@ end
 
 puts "get_station_info version.0.2015.05.14.1608"
 inparam = Hash.new # 入力情報保持用
+inparam[:map] = 'rail' # default
 
 # オプション解析用パーサー生成
 opt = OptionParser.new
 opt.on('-d', '--debug') {|val| inparam[:debug] = true }
+opt.on('-m VALUE', '--map') {|val| inparam[:map] = val }
 
 argv = opt.parse(ARGV)
 if argv.length != 2 then
-    puts "usage gis_analyze <xml path> <outfile path(kml)>"
-    puts " [options] -d : debug mode"
-    exit
+  puts "usage gis_analyze <xml path> <outfile path(kml)>"
+  puts " [options] -d : debug mode"
+  puts "           -m : 'rail' ... roil map(default)"
+  puts "              : 'station'.. station map"
+  puts "              : 'mix' ... mix map"
+  exit
 end
 
 stationData = Hash.new
@@ -407,7 +415,7 @@ begin
     puts "取りこぼしている".encode('cp932')
   end
   
-  out_array = create_kml(stationData, argv[1].encode('utf-8'))
+  out_array = create_kml(stationData, argv[1].encode('utf-8'), inparam)
   File.write argv[1], out_array.join("\n")
 rescue => exception
   puts "Exception:#{exception.message}"
