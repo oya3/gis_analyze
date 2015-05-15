@@ -112,16 +112,17 @@ def get_curves(station_data,key,station_name,tk)
       hash[:pos_array] = get_curve_pos_array(station_data,common)
       hash[:railway_type] = common[:railway_type]
       hash[:service_provider_type] = common[:service_provider_type]
+      hash[:station_name] = ''
       out_curves << hash
-      # # 駅リンクがあるか確認
-      # if common.key? :station
-      #   stations = station_data[:stations]
-      #   if stations.key? common[:station]
-      #     hash[:station_pos_array] = get_curve_pos_array(station_data,stations[common[:station]]);
-      #   else
-      #     puts "ERROR: 駅データに #{common[:station]} がない。".encode('cp932')
-      #   end
-      # end
+      # 駅リンクがあれば駅名を取得しておく
+      if common.key? :station
+        stations = station_data[:stations]
+        if stations.key? common[:station]
+          hash[:station_name] = stations[common[:station]][:station_name]
+        else
+          puts "ERROR: 駅データに #{common[:station]} がない。".encode('cp932')
+        end
+      end
     end
   end
   
@@ -159,11 +160,17 @@ def make_root_kml(station_data)
       kml.push '<description>'+rail[:operation_company]+'</description>'
       kml.push '<name>'+rail[:railway_line_name]+'</name>'
       kml.push '<ExtendedData>'
+      kml.push '<Data name="data_type">'
+      kml.push "<value>rail</value>"
+      kml.push '</Data>'
       kml.push '<Data name="company_name">'
       kml.push "<value>#{rail[:operation_company]}</value>"
       kml.push '</Data>'
       kml.push '<Data name="line_name">'
       kml.push "<value>#{rail[:railway_line_name]}</value>"
+      kml.push '</Data>'
+      kml.push '<Data name="station_name">'
+      kml.push "<value>#{rail[:station_name]}</value>"
       kml.push '</Data>'
       kml.push '<Data name="railway_type">'
       kml.push "<value>#{curve[:railway_type]}</value>"
@@ -193,7 +200,7 @@ def make_station_kml(station_data)
   station_data[:stations].each do |id,station|
     hash = station.clone
     
-    key = "#{station[:operation_company]}-#{station[:station_name]}"
+    key = "#{station[:operation_company]}-#{station[:railway_line_name]}-#{station[:station_name]}"
     pos_array = get_curve_pos_array(station_data,station)
     center = { :lat => 0, :lng => 0}
     hash[:center] = center
@@ -216,8 +223,14 @@ def make_station_kml(station_data)
     kml.push "<description>#{station[:operation_company]}</description>"
     kml.push "<name>#{station[:station_name]}駅</name>"
     kml.push '<ExtendedData>'
+    kml.push '<Data name="data_type">'
+    kml.push "<value>station</value>"
+    kml.push '</Data>'
     kml.push '<Data name="company_name">'
     kml.push "<value>#{station[:operation_company]}</value>"
+    kml.push '</Data>'
+    kml.push '<Data name="line_name">'
+    kml.push "<value>#{station[:railway_line_name]}</value>"
     kml.push '</Data>'
     kml.push '<Data name="station_name">'
     kml.push "<value>#{station[:station_name]}駅</value>"
@@ -366,7 +379,7 @@ def get_xml_commons(file_body,ksj_name)
 end
 
 
-puts "get_station_info version.0.2015.05.14.1608"
+puts "get_station_info version.0.2015.05.15.1142"
 inparam = Hash.new # 入力情報保持用
 inparam[:map] = 'rail' # default
 
