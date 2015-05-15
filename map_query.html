@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <title>Fusion Tables layers</title>
+    <style>
+      html, body, #map-canvas {
+        height: 100%;
+        margin: 0px;
+        padding: 0px
+      }
+    </style>
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp"></script>
+    <script>
+var map, layer;
+
+function initialize() {
+  var center = new google.maps.LatLng(34.686871327463116, 135.52652215576177);
+
+  map = new google.maps.Map(document.getElementById('map-canvas'), {
+    center: center,
+    zoom: 11
+  });
+
+  layer = new google.maps.FusionTablesLayer({
+    query: {
+      select: 'geometry',
+      from: "1oVouXsjBueThIMExCZh9LhYNVINnqIjzrnuc1fIT",
+      // where: "name CONTAINS '線'", // "線"を含むもののみ
+      // where: "data_type = 'rail'", // 路線だけ
+      // where: "data_type = 'station'", // 駅だけ
+    },
+    styles: [{
+      where: "service_provider_type = '1'",
+      polylineOptions: {
+        strokeColor: "#0000ff",
+        strokeOpacity: 1.0,
+      },
+      markerOptions: {
+        iconName: 'small_blue',
+      }
+    },{
+      where: "service_provider_type = '2'",
+      polylineOptions: {
+        strokeColor: "#00ff00",
+        strokeOpacity: 1.0,
+      },
+      markerOptions: {
+        iconName: 'small_green',
+      }
+    },{
+      where: "service_provider_type = '3'",
+      polylineOptions: {
+        strokeColor: "#ff0000",
+        strokeOpacity: 1.0,
+      },
+      markerOptions: {
+        iconName: 'small_red',
+      }
+    },{
+      where: "service_provider_type = '4'",
+      polylineOptions: {
+        strokeColor: "#ff00ff",
+        strokeOpacity: 1.0,
+      },
+      markerOptions: {
+        iconName: 'small_purple',
+      }
+    },{
+      where: "service_provider_type = '5'",
+      polylineOptions: {
+        strokeColor: "#ffff00",
+        strokeOpacity: 1.0,
+      },
+      markerOptions: {
+        iconName: 'small_yellow',
+      }
+    }]
+  });
+  layer.setMap(map);
+}
+
+google.maps.event.addDomListener(window, 'load', initialize);
+
+    </script>
+  </head>
+  <body>
+    <div id="map-canvas"></div>
+  </body>
+</html>
