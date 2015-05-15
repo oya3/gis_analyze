@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <title>Fusion Tables layers</title>
+    <style>
+      html, body, #map-canvas {
+        height: 100%;
+        margin: 0px;
+        padding: 0px
+      }
+    </style>
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp"></script>
+    <script>
+var map, layer;
+function initialize() {
+  var center = new google.maps.LatLng(34.686871327463116, 135.52652215576177);
+  map = new google.maps.Map(document.getElementById('map-canvas'), {
+    center: center,
+    zoom: 11
+  });
+  layer = new google.maps.FusionTablesLayer({
+    query: {
+      select: 'geometry',
+      from: "1oVouXsjBueThIMExCZh9LhYNVINnqIjzrnuc1fIT",
+    }
+  });
+  layer.setMap(map);
+  google.maps.event.addListener(layer, 'click', function(e) {
+    // Change the content of the InfoWindow
+    e.infoWindowHtml =
+      '事業者：' + e.row['company_name'].value + "<br>" +
+      '路線：' + e.row['line_name'].value;
+    if( e.row['data_type'].value == 'station') {
+      e.infoWindowHtml += '<br>駅名：' + e.row['station_name'].value;
+    }
+  });
+}
+
+google.maps.event.addDomListener(window, 'load', initialize);
+
+    </script>
+  </head>
+  <body>
+    <div id="map-canvas"></div>
+  </body>
+</html>
