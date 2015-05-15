@@ -16,10 +16,10 @@
 var map, layer;
 
 function initialize() {
-  var chicago = new google.maps.LatLng(34.686871327463116, 135.52652215576177);
+  var center = new google.maps.LatLng(34.686871327463116, 135.52652215576177);
 
   map = new google.maps.Map(document.getElementById('map-canvas'), {
-    center: chicago,
+    center: center,
     zoom: 11
   });
 

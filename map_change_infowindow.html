@@ -14,12 +14,15 @@
     <script src="https://maps.googleapis.com/maps/api/js?v=3.exp"></script>
     <script>
 var map, layer;
+
 function initialize() {
   var center = new google.maps.LatLng(34.686871327463116, 135.52652215576177);
+
   map = new google.maps.Map(document.getElementById('map-canvas'), {
     center: center,
     zoom: 11
   });
+
   layer = new google.maps.FusionTablesLayer({
     query: {
       select: 'geometry',
