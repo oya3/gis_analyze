@@ -57,49 +57,34 @@ def curve_connect(base_curves)
   is_link = true
   while is_link
     is_link = false
-    work_curves = Array.new
-    # 頭から接続する
-    while cc = current_curves.shift
-      work_curves << cc
+
+    current_curves.each.with_index do |cc,ci|
+      if !cc[:connected].nil?
+        next
+      end
+
       cp = cc[:pos_array].last
       current_curves.each.with_index do |tc,ti|
-        tp = tc[:pos_array].first
-        if tp.nil? || cp.nil?
-          puts "#{tk}:#{tc[:service_provider_type]}".encode('cp932')
-          binding.pry
+        if (ci == ti) || (!tc[:connected].nil?)
+          next
         end
+        tp = tc[:pos_array].first
         if (cp[:lat] == tp[:lat]) && (cp[:lng] == tp[:lng])
-          t = tc[:pos_array].clone
-          t.delete_at(0) # 先頭を捨てておく
-          cc[:pos_array] += t
-          current_curves.delete_at(ti)
+          tc[:connected] = true
+          cc[:pos_array] += tc[:pos_array].clone
+          cp = tc[:pos_array].last
           is_link = true
-          break
         end
       end
     end
-    current_curves = work_curves.clone
-    
-    work_curves = Array.new
-    # お尻から接続する
-    while cc = current_curves.pop
-      work_curves << cc
-      cp = cc[:pos_array].last
-      current_curves.each.with_index do |tc,ti|
-        tp = tc[:pos_array].first
-        if (cp[:lat] == tp[:lat]) && (cp[:lng] == tp[:lng])
-          t = tc[:pos_array].clone
-          t.delete_at(0) # 先頭を捨てておく
-          cc[:pos_array] += t
-          current_curves.delete_at(ti)
-          is_link = true
-          break
-        end
-      end
-    end
-    current_curves = work_curves.clone
   end
-  return current_curves
+  out_curves = Array.new
+  current_curves.each do |cc|
+    if cc[:connected].nil?
+      out_curves << cc
+    end
+  end
+  return out_curves
 end
 
 def get_curves(station_data,key,station_name,tk)
@@ -147,8 +132,8 @@ def make_root_kml(station_data)
   # # １つの路線のみ変換する用サンプルコード
   # rail_hash = Hash.new
   # hash = {
-  #   :railway_line_name => '4号線(中央線)',
-  #   :operation_company => '大阪市'
+  #   :railway_line_name => '草津線',
+  #   :operation_company => '西日本旅客鉄道'
   # }
   # rail_hash[:test] = hash
   
